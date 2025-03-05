@@ -1,0 +1,134 @@
+name: CMake on multiple platforms
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        build_type: [Release]
+        c_compiler: [gcc, clang]
+        include:
+          - os: windows-latest
+            c_compiler: gcc
+            cpp_compiler: g++
+          - os: windows-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+          - os: ubuntu-latest
+            c_compiler: gcc
+            cpp_compiler: g++
+          - os: ubuntu-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set reusable strings
+        id: strings
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            echo "build-output-dir=${{ github.workspace }}\\build" >> "$GITHUB_OUTPUT"
+          else
+            echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Linux Build Tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libssl-dev
+
+      - name: Install OpenSSL on Windows
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          choco install openssl --version=1.1.1.2100 -y
+          
+          $opensslDir = "C:\Program Files\OpenSSL-Win64"
+          if (Test-Path $opensslDir) {
+            # Найден стандартный путь установки
+          } else {
+            $opensslDir = "C:\Program Files\OpenSSL"
+            if (Test-Path $opensslDir) {
+              # Найден альтернативный путь установки
+            } else {
+              # Поиск по маске в Program Files
+              $opensslDir = Get-ChildItem -Path "C:\Program Files" -Filter "OpenSSL*" -Directory | Select-Object -First 1 -ExpandProperty FullName
+            }
+          }
+          
+          if (Test-Path "$opensslDir\bin") {
+            echo "OPENSSL_DIR=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Append
+            echo "$opensslDir\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          }
+          
+          choco install vcredist140 -y
+
+      - name: Setup MinGW (GCC on Windows)
+        if: runner.os == 'Windows' && matrix.c_compiler == 'gcc'
+        shell: powershell
+        run: |
+          choco install mingw --version=12.2.0 -y
+          echo "$env:ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Setup LLVM/Clang on Windows
+        if: runner.os == 'Windows' && matrix.c_compiler == 'clang'
+        uses: egor-tensin/setup-clang@v1
+        with:
+          version: latest
+          platform: x64
+
+      - name: Configure CMake
+        run: >
+          cmake -B ${{ steps.strings.outputs.build-output-dir }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -S ${{ github.workspace }}
+
+      - name: Build
+        run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+
+      - name: Test
+        working-directory: ${{ steps.strings.outputs.build-output-dir }}
+        run: ctest --build-config ${{ matrix.build_type }}
+
+      - name: Copy OpenSSL DLLs to Executable Directory (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $exeFiles = Get-ChildItem -Path ${{ steps.strings.outputs.build-output-dir }} -Recurse -Filter "*.exe"
+          
+          foreach ($exeFile in $exeFiles) {
+            $targetDir = $exeFile.DirectoryName
+          
+            if ($exeFile.Name -eq "lunarica.exe" -or $exeFile.Directory -eq "Release") {
+              if (Test-Path "$env:OPENSSL_DIR\bin") {
+                Get-ChildItem -Path "$env:OPENSSL_DIR\bin" -Filter "*.dll" | ForEach-Object {
+                  Copy-Item -Path $_.FullName -Destination $targetDir -Force -ErrorAction SilentlyContinue
+                }
+              }
+            }
+          }
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lunarica-${{ matrix.os }}-${{ matrix.c_compiler }}
+          path: |
+            ${{ steps.strings.outputs.build-output-dir }}/**/*.exe
+            ${{ steps.strings.outputs.build-output-dir }}/**/*.dll
+            ${{ steps.strings.outputs.build-output-dir }}/**/lunarica
+          if-no-files-found: warn
