@@ -226,31 +226,69 @@ public:
                 return true;
             }
 
-            nlohmann::json jsonData;
-            file >> jsonData;
+            file.seekg(0, std::ios::end);
+            const std::streampos fileSize = file.tellg();
+            if (fileSize == 0) {
+                std::cout << "Error: File is empty" << std::endl;
+                return true;
+            }
+            file.seekg(0, std::ios::beg);
 
-            if (!jsonData.is_object()) {
-                std::cout << "Error: JSON file must contain an object" << std::endl;
+            std::string content((std::istreambuf_iterator<char>(file)),
+                               std::istreambuf_iterator<char>());
+
+            content.erase(0, content.find_first_not_of(" \t\n\r\f\v"));
+            content.erase(content.find_last_not_of(" \t\n\r\f\v") + 1);
+
+            if (content.empty()) {
+                std::cout << "Error: File contains only whitespace" << std::endl;
                 return true;
             }
 
-            context_->clearBodyParams();
-
-            int count = 0;
-            for (auto it = jsonData.begin(); it != jsonData.end(); ++it) {
-                std::string value;
-                if (it.value().is_string()) {
-                    value = it.value().get<std::string>();
-                } else {
-                    value = it.value().dump();
-                }
-                context_->addBodyParam(it.key(), value);
-                count++;
+            if (content.size() >= 3 &&
+                static_cast<unsigned char>(content[0]) == 0xEF &&
+                static_cast<unsigned char>(content[1]) == 0xBB &&
+                static_cast<unsigned char>(content[2]) == 0xBF) {
+                content = content.substr(3);
             }
 
-            std::cout << "Loaded " << count << " body parameters from " << filename << std::endl;
+            if (content.front() != '{' && content.front() != '[') {
+                std::cout << "Error: File does not appear to be valid JSON. "
+                          << "JSON should start with '{' or '['" << std::endl;
+                return true;
+            }
+
+            nlohmann::json jsonData;
+            try {
+                jsonData = nlohmann::json::parse(content);
+
+                if (!jsonData.is_object()) {
+                    std::cout << "Error: JSON file must contain an object" << std::endl;
+                    return true;
+                }
+
+                context_->clearBodyParams();
+
+                int count = 0;
+                for (auto it = jsonData.begin(); it != jsonData.end(); ++it) {
+                    std::string value;
+                    if (it.value().is_string()) {
+                        value = it.value().get<std::string>();
+                    } else {
+                        value = it.value().dump();
+                    }
+                    context_->addBodyParam(it.key(), value);
+                    count++;
+                }
+
+                std::cout << "Loaded " << count << " body parameters from " << filename << std::endl;
+            } catch (const nlohmann::json::exception& e) {
+                std::cout << "Error parsing JSON data: " << e.what() << std::endl;
+                std::cout << "First 50 characters of file: "
+                          << content.substr(0, std::min(size_t(50), content.size())) << std::endl;
+            }
         } catch (const std::exception& e) {
-            std::cout << "Error loading JSON file: " << e.what() << std::endl;
+            std::cout << "Error loading file: " << e.what() << std::endl;
         }
 
         return true;
