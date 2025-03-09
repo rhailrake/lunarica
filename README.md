@@ -17,11 +17,7 @@ A lightweight, interactive command-line HTTP client for testing and exploring RE
 
 ## License
 
-This project is licensed under the Reciprocal Public License (RPL). Key points:
-    
-- You are free to use, modify, and distribute this software
-- If you modify the software, you must make your modifications available under the same license
-- Commercial use is allowed, but any modifications must still be shared
+This project is licensed under MIT.
 
 For the full license, see [LICENSE.TXT](LICENSE.TXT).
 
