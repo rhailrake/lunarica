@@ -102,6 +102,20 @@ target_link_libraries(lunarica PRIVATE
         cpp_base64
 )
 
+if(WIN32)
+    target_link_libraries(lunarica PRIVATE ws2_32)
+else()
+    find_library(PTHREAD_LIB pthread)
+    if(PTHREAD_LIB)
+        target_link_libraries(lunarica PRIVATE ${PTHREAD_LIB})
+    endif()
+
+    find_library(DL_LIB dl)
+    if(DL_LIB)
+        target_link_libraries(lunarica PRIVATE ${DL_LIB})
+    endif()
+endif()
+
 target_include_directories(lunarica PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${jsoncpp_SOURCE_DIR}/include"
