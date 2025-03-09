@@ -2,6 +2,8 @@
 
 A lightweight, interactive command-line HTTP client for testing and exploring RESTful APIs.
 
+![Lunarica](assets/lunarica.gif)
+
 ## Features
 
 - Interactive shell with syntax highlighting, autocompletion, and command history
