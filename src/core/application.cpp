@@ -34,7 +34,7 @@ namespace lunarica {
     }
 
     int Application::run() {
-        std::cout << "Lunarica - Interactive HTTP Client v0.1.0" << std::endl;
+        std::cout << "Lunarica - Interactive HTTP Client v0.1.6" << std::endl;
         std::cout << "Type 'help' for available commands, 'exit' to quit" << std::endl;
 
         while (!context_->shouldExit()) {
