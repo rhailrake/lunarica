@@ -31,7 +31,7 @@ include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
 set(REPLXX_VERSION "master")
-set(NLOHMANN_JSON_VERSION "v3.11.2")
+set(JSONCPP_VERSION "1.9.5")
 set(HTTPLIB_VERSION "v0.12.0")
 set(FMT_VERSION "9.1.0")
 set(CPP_BASE64_VERSION "master")
@@ -42,10 +42,17 @@ FetchContent_Declare(
         GIT_TAG ${REPLXX_VERSION}
 )
 
+set(JSONCPP_WITH_TESTS OFF CACHE BOOL "")
+set(JSONCPP_WITH_POST_BUILD_UNITTEST OFF CACHE BOOL "")
+set(JSONCPP_WITH_CMAKE_PACKAGE OFF CACHE BOOL "")
+set(JSONCPP_WITH_PKGCONFIG_SUPPORT OFF CACHE BOOL "")
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
+set(BUILD_STATIC_LIBS ON CACHE BOOL "")
+
 FetchContent_Declare(
-        nlohmann_json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG ${NLOHMANN_JSON_VERSION}
+        jsoncpp
+        GIT_REPOSITORY https://github.com/open-source-parsers/jsoncpp.git
+        GIT_TAG ${JSONCPP_VERSION}
 )
 
 FetchContent_Declare(
@@ -66,7 +73,7 @@ FetchContent_Declare(
         GIT_TAG ${CPP_BASE64_VERSION}
 )
 
-FetchContent_MakeAvailable(replxx nlohmann_json httplib fmt)
+FetchContent_MakeAvailable(replxx jsoncpp httplib fmt)
 
 FetchContent_MakeAvailable(cpp_base64)
 if(NOT TARGET cpp_base64)
@@ -82,7 +89,7 @@ add_executable(lunarica ${SOURCES})
 
 target_link_libraries(lunarica PRIVATE
         replxx::replxx
-        nlohmann_json::nlohmann_json
+        jsoncpp_static
         httplib::httplib
         fmt::fmt
         cpp_base64
@@ -90,4 +97,5 @@ target_link_libraries(lunarica PRIVATE
 
 target_include_directories(lunarica PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${jsoncpp_SOURCE_DIR}/include"
 )

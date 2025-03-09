@@ -5,7 +5,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <nlohmann/json.hpp>
+#include <json/json.h>
 #include "json_formatter.h"
 #include "core/context.h"
 

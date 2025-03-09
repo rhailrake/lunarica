@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <nlohmann/json.hpp>
+#include <json/json.h>
 #include "core/command.h"
 
 namespace lunarica {
@@ -258,11 +258,19 @@ public:
                 return true;
             }
 
-            nlohmann::json jsonData;
-            try {
-                jsonData = nlohmann::json::parse(content);
+            Json::Value jsonData;
+            Json::Reader reader;
+            bool parseSuccess = reader.parse(content, jsonData);
 
-                if (!jsonData.is_object()) {
+            try {
+                if (!parseSuccess) {
+                    std::cout << "Error parsing JSON data: " << reader.getFormattedErrorMessages() << std::endl;
+                    std::cout << "First 50 characters of file: "
+                              << content.substr(0, std::min(size_t(50), content.size())) << std::endl;
+                    return true;
+                }
+
+                if (!jsonData.isObject()) {
                     std::cout << "Error: JSON file must contain an object" << std::endl;
                     return true;
                 }
@@ -270,19 +278,24 @@ public:
                 context_->clearBodyParams();
 
                 int count = 0;
-                for (auto it = jsonData.begin(); it != jsonData.end(); ++it) {
+                Json::Value::Members members = jsonData.getMemberNames();
+                for (const auto& key : members) {
                     std::string value;
-                    if (it.value().is_string()) {
-                        value = it.value().get<std::string>();
+                    if (jsonData[key].isString()) {
+                        value = jsonData[key].asString();
                     } else {
-                        value = it.value().dump();
+                        Json::FastWriter writer;
+                        value = writer.write(jsonData[key]);
+                        if (!value.empty() && value[value.length()-1] == '\n') {
+                            value.erase(value.length()-1);
+                        }
                     }
-                    context_->addBodyParam(it.key(), value);
+                    context_->addBodyParam(key, value);
                     count++;
                 }
 
                 std::cout << "Loaded " << count << " body parameters from " << filename << std::endl;
-            } catch (const nlohmann::json::exception& e) {
+            } catch (const std::exception& e) {
                 std::cout << "Error parsing JSON data: " << e.what() << std::endl;
                 std::cout << "First 50 characters of file: "
                           << content.substr(0, std::min(size_t(50), content.size())) << std::endl;

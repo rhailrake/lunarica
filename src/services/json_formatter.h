@@ -5,7 +5,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <nlohmann/json.hpp>
+#include <json/json.h>
 #include <algorithm>
 
 #ifdef _WIN32

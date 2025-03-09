@@ -210,7 +210,7 @@ std::string HttpService::extractHost(const std::string& url) {
 }
 
 std::string HttpService::buildRequestBody() {
-    nlohmann::json jsonBody = nlohmann::json::object();
+    Json::Value jsonBody;
 
     for (const auto& [key, value] : context_->getBodyParams()) {
         try {
@@ -219,7 +219,7 @@ std::string HttpService::buildRequestBody() {
             } else if (value == "false") {
                 jsonBody[key] = false;
             } else if (value == "null") {
-                jsonBody[key] = nullptr;
+                jsonBody[key] = Json::Value();
             } else if (std::all_of(value.begin(), value.end(), [](char c) {
                 return std::isdigit(c) || c == '.' || c == '-' || c == '+' || c == 'e' || c == 'E';
             })) {
@@ -236,7 +236,14 @@ std::string HttpService::buildRequestBody() {
         }
     }
 
-    return jsonBody.dump();
+    Json::FastWriter writer;
+    std::string jsonStr = writer.write(jsonBody);
+
+    if (!jsonStr.empty() && jsonStr[jsonStr.length()-1] == '\n') {
+        jsonStr.erase(jsonStr.length()-1);
+    }
+
+    return jsonStr;
 }
 
 }

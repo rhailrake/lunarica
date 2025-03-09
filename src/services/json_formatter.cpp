@@ -4,10 +4,18 @@ namespace lunarica {
 
 void JsonFormatter::format(const std::string& json) {
     try {
-        auto parsedJson = nlohmann::json::parse(json);
-        std::string formattedJson = parsedJson.dump(2);
-        highlightAndPrintJson(formattedJson);
-    } catch (const nlohmann::json::exception&) {
+        Json::Value parsedJson;
+        Json::Reader reader;
+        bool parseSuccess = reader.parse(json, parsedJson);
+
+        if (parseSuccess) {
+            Json::StyledWriter styledWriter;
+            std::string formattedJson = styledWriter.write(parsedJson);
+            highlightAndPrintJson(formattedJson);
+        } else {
+            std::cout << json << std::endl;
+        }
+    } catch (const std::exception&) {
         std::cout << json << std::endl;
     }
 }
