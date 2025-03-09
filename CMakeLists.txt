@@ -13,7 +13,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 if(WIN32)
     set(CMAKE_EXE_LINKER_FLAGS "-static")
 else()
-    set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+    set(CMAKE_EXE_LINKER_FLAGS "-static")
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
 endif()
 
 if(MSVC)
@@ -104,16 +105,10 @@ target_link_libraries(lunarica PRIVATE
 
 if(WIN32)
     target_link_libraries(lunarica PRIVATE ws2_32)
-else()
-    find_library(PTHREAD_LIB pthread)
-    if(PTHREAD_LIB)
-        target_link_libraries(lunarica PRIVATE ${PTHREAD_LIB})
-    endif()
+elseif(UNIX)
+    target_link_libraries(lunarica PRIVATE pthread dl)
 
-    find_library(DL_LIB dl)
-    if(DL_LIB)
-        target_link_libraries(lunarica PRIVATE ${DL_LIB})
-    endif()
+    target_link_libraries(lunarica PRIVATE ssl crypto)
 endif()
 
 target_include_directories(lunarica PRIVATE
