@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <json/json.h>
 #include "core/command.h"
+#include "utils/encoding_utils.h"
 
 namespace lunarica {
 
@@ -221,55 +222,23 @@ public:
         filename.erase(filename.find_last_not_of(" \t") + 1);
 
         try {
-            std::ifstream file(filename, std::ios::binary);
-            if (!file.is_open()) {
-                std::cout << "Error: Could not open file " << filename << std::endl;
+            Encoding encoding = EncodingUtils::detectFileEncoding(filename);
+            std::string content;
+
+            if (!EncodingUtils::readFileToUTF8(filename, content)) {
+                std::cout << "Error: Could not open or read file " << filename << std::endl;
                 return true;
             }
 
-            file.seekg(0, std::ios::end);
-            const std::streampos fileSize = file.tellg();
-            if (fileSize == 0) {
+            if (content.empty()) {
                 std::cout << "Error: File is empty" << std::endl;
                 return true;
             }
-            file.seekg(0, std::ios::beg);
 
-            std::string content((std::istreambuf_iterator<char>(file)),
-                               std::istreambuf_iterator<char>());
-
-            content.erase(0, content.find_first_not_of(" \t\n\r\f\v\x00"));
-            content.erase(content.find_last_not_of(" \t\n\r\f\v\x00") + 1);
-
-            if (content.empty()) {
-                std::cout << "Error: File contains only whitespace" << std::endl;
-                return true;
-            }
-
-            if (content.size() >= 3 &&
-                static_cast<unsigned char>(content[0]) == 0xEF &&
-                static_cast<unsigned char>(content[1]) == 0xBB &&
-                static_cast<unsigned char>(content[2]) == 0xBF) {
-                content = content.substr(3);
-                content.erase(0, content.find_first_not_of(" \t\n\r\f\v"));
-                content.erase(content.find_last_not_of(" \t\n\r\f\v") + 1);
-            }
-            else if (content.size() >= 2 &&
-                    static_cast<unsigned char>(content[0]) == 0xFF &&
-                    static_cast<unsigned char>(content[1]) == 0xFE) {
-                std::cout << "Error: UTF-16 LE encoded file detected. Please save the file as UTF-8." << std::endl;
-                return true;
-            }
-            else if (content.size() >= 2 &&
-                    static_cast<unsigned char>(content[0]) == 0xFE &&
-                    static_cast<unsigned char>(content[1]) == 0xFF) {
-                std::cout << "Error: UTF-16 BE encoded file detected. Please save the file as UTF-8." << std::endl;
-                return true;
-            }
-
-            if (content.empty()) {
-                std::cout << "Error: File contains only BOM marker or whitespace" << std::endl;
-                return true;
+            if (encoding != Encoding::UTF8 && encoding != Encoding::Unknown) {
+                std::cout << "Note: File was automatically converted from "
+                          << EncodingUtils::getEncodingName(encoding)
+                          << " to UTF-8" << std::endl;
             }
 
             Json::CharReaderBuilder builder;

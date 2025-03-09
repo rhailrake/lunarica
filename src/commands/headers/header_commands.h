@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include "core/command.h"
+#include "utils/encoding_utils.h"
 
 namespace lunarica {
 
@@ -77,14 +78,14 @@ public:
 
     bool execute(const std::string& args) override {
         if (args.empty()) {
-            std::cout << "Usage: header <name>:<value>" << std::endl;
+            std::cout << "Usage: header <n>:<value>" << std::endl;
             std::cout << "Example: header Content-Type:application/json" << std::endl;
             return true;
         }
 
         size_t colonPos = args.find(':');
         if (colonPos == std::string::npos) {
-            std::cout << "Invalid header format. Use 'header <name>:<value>'" << std::endl;
+            std::cout << "Invalid header format. Use 'header <n>:<value>'" << std::endl;
             std::cout << "Example: header Content-Type:application/json" << std::endl;
             return true;
         }
@@ -104,7 +105,7 @@ public:
     }
 
     std::string getHint() const override {
-        return "<name>:<value>  - Add or update a header";
+        return "<n>:<value>  - Add or update a header";
     }
 };
 
@@ -127,7 +128,7 @@ public:
 
     bool execute(const std::string& args) override {
         if (args.empty()) {
-            std::cout << "Usage: rm-header <name>" << std::endl;
+            std::cout << "Usage: rm-header <n>" << std::endl;
             return true;
         }
 
@@ -142,7 +143,7 @@ public:
     }
 
     std::string getHint() const override {
-        return "<name>     - Remove a header";
+        return "<n>     - Remove a header";
     }
 };
 
@@ -178,16 +179,25 @@ public:
         filename.erase(filename.find_last_not_of(" \t") + 1);
 
         try {
-            std::ifstream file(filename);
-            if (!file.is_open()) {
-                std::cout << "Error: Could not open file " << filename << std::endl;
+            Encoding encoding = EncodingUtils::detectFileEncoding(filename);
+            std::string content;
+
+            if (!EncodingUtils::readFileToUTF8(filename, content)) {
+                std::cout << "Error: Could not open or read file " << filename << std::endl;
                 return true;
             }
 
+            if (encoding != Encoding::UTF8 && encoding != Encoding::Unknown) {
+                std::cout << "Note: File was automatically converted from "
+                          << EncodingUtils::getEncodingName(encoding)
+                          << " to UTF-8" << std::endl;
+            }
+
+            std::istringstream iss(content);
             std::string line;
             int count = 0;
 
-            while (std::getline(file, line)) {
+            while (std::getline(iss, line)) {
                 if (line.empty() || line[0] == '#') {
                     continue;
                 }

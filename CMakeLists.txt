@@ -35,6 +35,7 @@ set(JSONCPP_VERSION "1.9.5")
 set(HTTPLIB_VERSION "v0.12.0")
 set(FMT_VERSION "9.1.0")
 set(CPP_BASE64_VERSION "master")
+set(UTF8CPP_VERSION "v3.2.3")
 
 FetchContent_Declare(
         replxx
@@ -73,7 +74,13 @@ FetchContent_Declare(
         GIT_TAG ${CPP_BASE64_VERSION}
 )
 
-FetchContent_MakeAvailable(replxx jsoncpp httplib fmt)
+FetchContent_Declare(
+        utf8cpp
+        GIT_REPOSITORY https://github.com/nemtrif/utfcpp.git
+        GIT_TAG ${UTF8CPP_VERSION}
+)
+
+FetchContent_MakeAvailable(replxx jsoncpp httplib fmt utf8cpp)
 
 FetchContent_MakeAvailable(cpp_base64)
 if(NOT TARGET cpp_base64)
@@ -98,4 +105,5 @@ target_link_libraries(lunarica PRIVATE
 target_include_directories(lunarica PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${jsoncpp_SOURCE_DIR}/include"
+        "${utf8cpp_SOURCE_DIR}/source"
 )
