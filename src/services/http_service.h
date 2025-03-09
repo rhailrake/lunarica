@@ -21,6 +21,8 @@ namespace lunarica {
         void put(const std::string& path);
         void del(const std::string& path);
 
+        std::string extractHost(const std::string& url);
+
     private:
         std::shared_ptr<Context> context_;
         std::shared_ptr<JsonFormatter> formatter_;
@@ -40,8 +42,6 @@ namespace lunarica {
         std::string buildQueryString();
 
         std::string parseUrl(const std::string& baseUrl, const std::string& path);
-
-        std::string extractHost(const std::string& url);
 
         std::string buildRequestBody();
     };

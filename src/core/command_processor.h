@@ -38,6 +38,12 @@ namespace lunarica {
                                         int& context_len,
                                         replxx::Replxx::Color& color);
 
+        CommandRegistry& getCommandRegistry() {
+            return commandRegistry_;
+        }
+
+        std::pair<std::string, std::string> parseCommandLine(const std::string& commandLine);
+
     private:
         std::shared_ptr<Context> context_;
         std::shared_ptr<JsonFormatter> jsonFormatter_;
@@ -45,8 +51,6 @@ namespace lunarica {
         CommandRegistry commandRegistry_;
 
         void registerCommands();
-
-        std::pair<std::string, std::string> parseCommandLine(const std::string& commandLine);
     };
 
 }
