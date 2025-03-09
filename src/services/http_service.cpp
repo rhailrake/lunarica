@@ -226,7 +226,7 @@ std::string HttpService::buildRequestBody() {
                 if (value.find('.') != std::string::npos) {
                     jsonBody[key] = std::stod(value);
                 } else {
-                    jsonBody[key] = std::stoll(value);
+                    jsonBody[key] = Json::Int64(std::stoll(value));
                 }
             } else {
                 jsonBody[key] = value;
