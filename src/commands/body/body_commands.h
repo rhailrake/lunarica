@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 #include <json/json.h>
 #include "core/command.h"
 
@@ -220,7 +221,7 @@ public:
         filename.erase(filename.find_last_not_of(" \t") + 1);
 
         try {
-            std::ifstream file(filename);
+            std::ifstream file(filename, std::ios::binary);
             if (!file.is_open()) {
                 std::cout << "Error: Could not open file " << filename << std::endl;
                 return true;
@@ -237,8 +238,8 @@ public:
             std::string content((std::istreambuf_iterator<char>(file)),
                                std::istreambuf_iterator<char>());
 
-            content.erase(0, content.find_first_not_of(" \t\n\r\f\v"));
-            content.erase(content.find_last_not_of(" \t\n\r\f\v") + 1);
+            content.erase(0, content.find_first_not_of(" \t\n\r\f\v\x00"));
+            content.erase(content.find_last_not_of(" \t\n\r\f\v\x00") + 1);
 
             if (content.empty()) {
                 std::cout << "Error: File contains only whitespace" << std::endl;
@@ -250,23 +251,54 @@ public:
                 static_cast<unsigned char>(content[1]) == 0xBB &&
                 static_cast<unsigned char>(content[2]) == 0xBF) {
                 content = content.substr(3);
+                content.erase(0, content.find_first_not_of(" \t\n\r\f\v"));
+                content.erase(content.find_last_not_of(" \t\n\r\f\v") + 1);
             }
-
-            if (content.front() != '{' && content.front() != '[') {
-                std::cout << "Error: File does not appear to be valid JSON. "
-                          << "JSON should start with '{' or '['" << std::endl;
+            else if (content.size() >= 2 &&
+                    static_cast<unsigned char>(content[0]) == 0xFF &&
+                    static_cast<unsigned char>(content[1]) == 0xFE) {
+                std::cout << "Error: UTF-16 LE encoded file detected. Please save the file as UTF-8." << std::endl;
+                return true;
+            }
+            else if (content.size() >= 2 &&
+                    static_cast<unsigned char>(content[0]) == 0xFE &&
+                    static_cast<unsigned char>(content[1]) == 0xFF) {
+                std::cout << "Error: UTF-16 BE encoded file detected. Please save the file as UTF-8." << std::endl;
                 return true;
             }
 
+            if (content.empty()) {
+                std::cout << "Error: File contains only BOM marker or whitespace" << std::endl;
+                return true;
+            }
+
+            Json::CharReaderBuilder builder;
+            builder["allowComments"] = true;
+            builder["allowTrailingCommas"] = true;
+            builder["strictRoot"] = false;
+            builder["collectComments"] = false;
+
+            std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
             Json::Value jsonData;
-            Json::Reader reader;
-            bool parseSuccess = reader.parse(content, jsonData);
+            std::string parseErrors;
+
+            bool parseSuccess = reader->parse(
+                content.c_str(), content.c_str() + content.size(),
+                &jsonData, &parseErrors
+            );
 
             try {
                 if (!parseSuccess) {
-                    std::cout << "Error parsing JSON data: " << reader.getFormattedErrorMessages() << std::endl;
+                    std::cout << "Error parsing JSON data: " << parseErrors << std::endl;
                     std::cout << "First 50 characters of file: "
                               << content.substr(0, std::min(size_t(50), content.size())) << std::endl;
+
+                    std::cout << "First 20 bytes (hex): ";
+                    for (size_t i = 0; i < std::min(size_t(20), content.size()); ++i) {
+                        std::cout << std::hex << std::setw(2) << std::setfill('0')
+                                << static_cast<int>(static_cast<unsigned char>(content[i])) << " ";
+                    }
+                    std::cout << std::dec << std::endl;
                     return true;
                 }
 
@@ -296,7 +328,7 @@ public:
 
                 std::cout << "Loaded " << count << " body parameters from " << filename << std::endl;
             } catch (const std::exception& e) {
-                std::cout << "Error parsing JSON data: " << e.what() << std::endl;
+                std::cout << "Error processing JSON data: " << e.what() << std::endl;
                 std::cout << "First 50 characters of file: "
                           << content.substr(0, std::min(size_t(50), content.size())) << std::endl;
             }
