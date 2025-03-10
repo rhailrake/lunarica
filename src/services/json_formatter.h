@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <stack>
 #include <json/json.h>
 #include <algorithm>
 
@@ -32,6 +33,7 @@ namespace lunarica {
         std::string trimLeft(const std::string& s);
         int getTerminalWidth();
         void printWrappedLine(const std::string& line, size_t indent, int maxWidth);
+        std::string stripANSI(const std::string& input);
     };
 
 }
