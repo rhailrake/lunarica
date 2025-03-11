@@ -239,7 +239,6 @@ int JsonFormatter::getTerminalWidth() {
 #ifdef _WIN32
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     int columns = 80;
-
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     if (GetConsoleScreenBufferInfo(hConsole, &csbi)) {
         columns = csbi.srWindow.Right - csbi.srWindow.Left + 1;
@@ -247,13 +246,15 @@ int JsonFormatter::getTerminalWidth() {
     return columns;
 #else
     struct winsize w;
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    return w.ws_col > 0 ? w.ws_col : 80;
+    if (ioctl(fileno(stdout), TIOCGWINSZ, &w) != -1) {
+        return w.ws_col;
+    }
+    return 80;
 #endif
 }
 
 void JsonFormatter::printWrappedLine(const std::string& line, size_t indent, int maxWidth) {
-    const int indentWidth = indent * 2;
+    const int indentWidth = static_cast<int>(indent * 2);
     const int contentWidth = maxWidth - indentWidth - 5;
 
     size_t pos = 0;

@@ -1,9 +1,12 @@
-﻿#include <gtest/gtest.h>
-#include <gmock/gmock.h>
-#include "services/http_service.h"
-#include "utils/encoding_utils.h"
+﻿#include "services/http_service.h"
+
 #include <memory>
 #include <string>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include "../utils/test_http_server.h"
+#include "utils/encoding_utils.h"
 
 namespace lunarica {
 
@@ -12,6 +15,7 @@ protected:
     std::shared_ptr<Context> context;
     std::shared_ptr<JsonFormatter> formatter;
     std::unique_ptr<HttpService> httpService;
+    std::unique_ptr<testing::TestHttpServer> testServer;
     std::streambuf* originalCoutBuffer;
     std::ostringstream outputStream;
 
@@ -19,11 +23,18 @@ protected:
         context = std::make_shared<Context>();
         formatter = std::make_shared<JsonFormatter>();
         httpService = std::make_unique<HttpService>(context, formatter);
+
+        testServer = std::make_unique<testing::TestHttpServer>(8090);
+        testServer->start();
+
+        context->setUrl(testServer->getBaseUrl());
+
         originalCoutBuffer = std::cout.rdbuf(outputStream.rdbuf());
     }
 
     void TearDown() override {
         std::cout.rdbuf(originalCoutBuffer);
+        testServer->stop();
     }
 
     std::string getOutput() {
@@ -33,21 +44,19 @@ protected:
     }
 };
 
-TEST_F(HttpServiceTest, JSONPlaceholderGetTest) {
-    context->setUrl("https://jsonplaceholder.typicode.com");
-
+TEST_F(HttpServiceTest, GetRequestTest) {
     httpService->get("/posts/1");
 
     std::string output = getOutput();
     EXPECT_TRUE(output.find("Making GET request") != std::string::npos);
     EXPECT_TRUE(output.find("STATUS: 200") != std::string::npos);
-    EXPECT_TRUE(output.find("application/json") != std::string::npos);
+    EXPECT_TRUE(output.find("Content-Type: application/json") != std::string::npos);
+    EXPECT_TRUE(output.find("Test Post") != std::string::npos);
 }
 
-TEST_F(HttpServiceTest, JSONPlaceholderPostTest) {
-    context->setUrl("https://jsonplaceholder.typicode.com");
-    context->addBodyParam("title", "Test Title");
-    context->addBodyParam("body", "Test Body");
+TEST_F(HttpServiceTest, PostRequestTest) {
+    context->addBodyParam("title", "New Post");
+    context->addBodyParam("body", "Content");
     context->addBodyParam("userId", "1");
 
     httpService->post("/posts");
@@ -55,13 +64,13 @@ TEST_F(HttpServiceTest, JSONPlaceholderPostTest) {
     std::string output = getOutput();
     EXPECT_TRUE(output.find("Making POST request") != std::string::npos);
     EXPECT_TRUE(output.find("STATUS: 201") != std::string::npos);
+    EXPECT_TRUE(output.find("id") != std::string::npos);
+    EXPECT_TRUE(output.find("New Post") != std::string::npos);
 }
 
-TEST_F(HttpServiceTest, JSONPlaceholderPutTest) {
-    context->setUrl("https://jsonplaceholder.typicode.com");
-    context->addBodyParam("id", "1");
-    context->addBodyParam("title", "Updated Title");
-    context->addBodyParam("body", "Updated Body");
+TEST_F(HttpServiceTest, PutRequestTest) {
+    context->addBodyParam("title", "Updated Post");
+    context->addBodyParam("body", "Updated Content");
     context->addBodyParam("userId", "1");
 
     httpService->put("/posts/1");
@@ -69,11 +78,11 @@ TEST_F(HttpServiceTest, JSONPlaceholderPutTest) {
     std::string output = getOutput();
     EXPECT_TRUE(output.find("Making PUT request") != std::string::npos);
     EXPECT_TRUE(output.find("STATUS: 200") != std::string::npos);
+    EXPECT_TRUE(output.find("Updated Post") != std::string::npos);
+    EXPECT_TRUE(output.find("Updated Content") != std::string::npos);
 }
 
-TEST_F(HttpServiceTest, JSONPlaceholderDeleteTest) {
-    context->setUrl("https://jsonplaceholder.typicode.com");
-
+TEST_F(HttpServiceTest, DeleteRequestTest) {
     httpService->del("/posts/1");
 
     std::string output = getOutput();
@@ -82,71 +91,52 @@ TEST_F(HttpServiceTest, JSONPlaceholderDeleteTest) {
 }
 
 TEST_F(HttpServiceTest, QueryParametersTest) {
-    context->setUrl("https://httpbin.org");
     context->addQueryParam("param1", "value1");
     context->addQueryParam("param2", "value2");
 
-    httpService->get("/get");
+    httpService->get("/query");
 
     std::string output = getOutput();
     EXPECT_TRUE(output.find("Making GET request") != std::string::npos);
     EXPECT_TRUE(output.find("STATUS: 200") != std::string::npos);
-    EXPECT_TRUE(output.find("param1=value1") != std::string::npos ||
-                output.find("param2=value2") != std::string::npos);
+    EXPECT_TRUE(output.find("param1") != std::string::npos);
+    EXPECT_TRUE(output.find("value1") != std::string::npos);
+    EXPECT_TRUE(output.find("param2") != std::string::npos);
+    EXPECT_TRUE(output.find("value2") != std::string::npos);
 }
 
 TEST_F(HttpServiceTest, CustomHeadersTest) {
-    context->setUrl("https://httpbin.org");
     context->addHeader("X-Custom-Header", "custom-value");
-    context->addHeader("Accept", "application/json");
 
     httpService->get("/headers");
 
     std::string output = getOutput();
     EXPECT_TRUE(output.find("Making GET request") != std::string::npos);
     EXPECT_TRUE(output.find("STATUS: 200") != std::string::npos);
+    EXPECT_TRUE(output.find("X-Custom-Header") != std::string::npos);
+    EXPECT_TRUE(output.find("custom-value") != std::string::npos);
 }
 
-TEST_F(HttpServiceTest, JSONDataBodyTest) {
-    context->setUrl("https://httpbin.org");
-    context->addBodyParam("string", "value");
-    context->addBodyParam("number", "42");
-    context->addBodyParam("boolean", "true");
-    context->addBodyParam("null_value", "null");
-
-    httpService->post("/post");
+TEST_F(HttpServiceTest, NotFoundTest) {
+    httpService->get("/not-found");
 
     std::string output = getOutput();
-    EXPECT_TRUE(output.find("Making POST request") != std::string::npos);
-    EXPECT_TRUE(output.find("STATUS: 200") != std::string::npos);
+    EXPECT_TRUE(output.find("Making GET request") != std::string::npos);
+    EXPECT_TRUE(output.find("STATUS: 404") != std::string::npos);
+    EXPECT_TRUE(output.find("Not Found") != std::string::npos);
 }
 
 TEST_F(HttpServiceTest, URLParsingTest) {
-    context->setUrl("http://localhost:8000");
+    std::string baseUrl = testServer->getBaseUrl();
+    context->setUrl(baseUrl);
 
-    httpService->get("/api/test");
-
-    std::string output = getOutput();
-    EXPECT_TRUE(output.find("Making GET request to: http://localhost:8000/api/test") != std::string::npos);
-}
-
-TEST_F(HttpServiceTest, RequestBodyJSONFormattingTest) {
-    context->setUrl("https://httpbin.org");
-    context->addBodyParam("string", "value");
-    context->addBodyParam("number", "42");
-    context->addBodyParam("boolean", "true");
-    context->addBodyParam("null_value", "null");
-
-    httpService->post("/post");
+    httpService->get("/posts/1");
 
     std::string output = getOutput();
-    EXPECT_TRUE(output.find("Making POST request") != std::string::npos);
-    EXPECT_TRUE(output.find("STATUS: 200") != std::string::npos);
+    EXPECT_TRUE(output.find("Making GET request to: " + baseUrl + "/posts/1") != std::string::npos);
 }
 
 TEST_F(HttpServiceTest, ContextTimeoutSettingsTest) {
-    context->setUrl("https://httpbin.org");
-
     context->setConnectionTimeout(10);
     EXPECT_EQ(10, context->getConnectionTimeout());
 
@@ -155,30 +145,33 @@ TEST_F(HttpServiceTest, ContextTimeoutSettingsTest) {
 }
 
 TEST_F(HttpServiceTest, AbsolutePathTest) {
-    context->setUrl("https://jsonplaceholder.typicode.com/posts");
+    std::string baseUrl = testServer->getBaseUrl();
+    context->setUrl(baseUrl + "/posts");
 
     httpService->get("/1");
 
     std::string output = getOutput();
-    EXPECT_TRUE(output.find("Making GET request to: https://jsonplaceholder.typicode.com/1") != std::string::npos);
+    EXPECT_TRUE(output.find("Making GET request to: " + baseUrl + "/1") != std::string::npos);
 }
 
 TEST_F(HttpServiceTest, RelativePathTest) {
-    context->setUrl("https://jsonplaceholder.typicode.com/posts");
+    std::string baseUrl = testServer->getBaseUrl();
+    context->setUrl(baseUrl + "/posts");
 
     httpService->get("1");
 
     std::string output = getOutput();
-    EXPECT_TRUE(output.find("Making GET request to: https://jsonplaceholder.typicode.com/posts/1") != std::string::npos);
+    EXPECT_TRUE(output.find("Making GET request to: " + baseUrl + "/posts/1") != std::string::npos);
 }
 
 TEST_F(HttpServiceTest, CompleteURLTest) {
-    context->setUrl("https://example.com");
+    context->setUrl("http://example.com");
 
-    httpService->get("https://jsonplaceholder.typicode.com/posts/1");
+    std::string testUrl = testServer->getBaseUrl() + "/posts/1";
+    httpService->get(testUrl);
 
     std::string output = getOutput();
-    EXPECT_TRUE(output.find("Making GET request to: https://jsonplaceholder.typicode.com/posts/1") != std::string::npos);
+    EXPECT_TRUE(output.find("Making GET request to: " + testUrl) != std::string::npos);
 }
 
 }
