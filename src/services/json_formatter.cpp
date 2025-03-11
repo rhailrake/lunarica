@@ -86,7 +86,7 @@ void JsonFormatter::highlightAndPrintJson(const std::string& json) {
                         foundClosingQuote = true;
 
                         size_t k = j + 1;
-                        while (k < json.length() && std::isspace(json[k])) {
+                        while (k < json.length() && std::isspace(static_cast<unsigned char>(json[k]))) {
                             k++;
                         }
 
@@ -147,12 +147,12 @@ void JsonFormatter::highlightAndPrintJson(const std::string& json) {
                 break;
             }
             default: {
-                if (std::isdigit(c) || c == '-' || c == '+' || c == '.') {
+                if (std::isdigit(static_cast<unsigned char>(c)) || c == '-' || c == '+' || c == '.') {
                     std::string number;
                     size_t j = i;
 
                     while (j < json.length() &&
-                           (std::isdigit(json[j]) || json[j] == '-' || json[j] == '+' ||
+                           (std::isdigit(static_cast<unsigned char>(json[j])) || json[j] == '-' || json[j] == '+' ||
                             json[j] == '.' || json[j] == 'e' || json[j] == 'E')) {
                         number += json[j];
                         j++;
@@ -164,7 +164,7 @@ void JsonFormatter::highlightAndPrintJson(const std::string& json) {
                     } else {
                         result += c;
                     }
-                } else if (std::isspace(c)) {
+                } else if (std::isspace(static_cast<unsigned char>(c))) {
                     if (c == '\n') {
                         result += "\n" + std::string(indentLevel * 2, ' ');
                     }
@@ -201,7 +201,7 @@ bool JsonFormatter::isNumber(const std::string& s) {
 }
 
 bool JsonFormatter::isValidNumberChar(char c, char prev) {
-    if (std::isdigit(c)) {
+    if (std::isdigit(static_cast<unsigned char>(c))) {
         return true;
     }
 
@@ -221,7 +221,7 @@ bool JsonFormatter::isValidNumberChar(char c, char prev) {
 
 size_t JsonFormatter::countLeadingSpaces(const std::string& s) {
     size_t count = 0;
-    while (count < s.size() && std::isspace(s[count])) {
+    while (count < s.size() && std::isspace(static_cast<unsigned char>(s[count]))) {
         count++;
     }
     return count;
@@ -229,7 +229,7 @@ size_t JsonFormatter::countLeadingSpaces(const std::string& s) {
 
 std::string JsonFormatter::trimLeft(const std::string& s) {
     size_t start = 0;
-    while (start < s.size() && std::isspace(s[start])) {
+    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) {
         start++;
     }
     return s.substr(start);
@@ -246,7 +246,7 @@ int JsonFormatter::getTerminalWidth() {
     return columns;
 #else
     struct winsize w;
-    if (ioctl(fileno(stdout), TIOCGWINSZ, &w) != -1) {
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) != -1) {
         return w.ws_col;
     }
     return 80;
@@ -263,7 +263,7 @@ void JsonFormatter::printWrappedLine(const std::string& line, size_t indent, int
 
         if (chunkSize < line.length() - pos) {
             size_t breakPos = pos + chunkSize;
-            while (breakPos > pos && !std::isspace(line[breakPos])) {
+            while (breakPos > pos && !std::isspace(static_cast<unsigned char>(line[breakPos]))) {
                 breakPos--;
             }
 
@@ -277,7 +277,7 @@ void JsonFormatter::printWrappedLine(const std::string& line, size_t indent, int
         std::cout << std::string(indentWidth, ' ') << line.substr(pos, chunkSize) << std::endl;
         pos += chunkSize;
 
-        while (pos < line.length() && std::isspace(line[pos])) {
+        while (pos < line.length() && std::isspace(static_cast<unsigned char>(line[pos]))) {
             pos++;
         }
     }
