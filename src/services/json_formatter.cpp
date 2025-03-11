@@ -182,7 +182,7 @@ void JsonFormatter::highlightAndPrintJson(const std::string& json) {
     while (std::getline(resultStream, line)) {
         size_t contentWidth = stripANSI(line).length();
 
-        if (contentWidth > terminalWidth - 5) {
+        if (contentWidth > static_cast<size_t>(terminalWidth - 5)) {
             printWrappedLine(line, countLeadingSpaces(line), terminalWidth);
         } else {
             std::cout << line << std::endl;
@@ -259,7 +259,7 @@ void JsonFormatter::printWrappedLine(const std::string& line, size_t indent, int
 
     size_t pos = 0;
     while (pos < line.length()) {
-        size_t chunkSize = std::min<size_t>(contentWidth, line.length() - pos);
+        size_t chunkSize = std::min(static_cast<size_t>(contentWidth), line.length() - pos);
 
         if (chunkSize < line.length() - pos) {
             size_t breakPos = pos + chunkSize;
