@@ -8,6 +8,8 @@
 #include <json/json.h>
 #include <algorithm>
 
+#define NOMINMAX
+
 #ifdef _WIN32
 #include <windows.h>
 #else
